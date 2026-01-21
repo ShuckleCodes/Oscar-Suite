@@ -130,12 +130,13 @@
     }
 
     // Create guest card element
-    function createGuestCard(guest, index) {
+    function createGuestCard(guest, index, leftPos) {
         var card = document.createElement("div")
         card.classList.add("guest-card")
         card.setAttribute("data-guest-id", guest.id)
         card.style.position = "absolute"
-        card.style.transition = "left 2s ease-in-out, box-shadow 0.5s ease"
+        card.style.transition = "none"  // Override CSS - added later after positioning
+        card.style.left = leftPos + "px"  // Set position before adding to DOM
 
         var photoSrc = guest.photo ? "/home/data/" + guest.photo : "/home/data/Backgrounds/oscar.png"
 
@@ -155,16 +156,22 @@
 
         // Sort by score descending for initial positions
         var sortedGuests = [...guests].sort(function(a, b) {
-            return (b.score || 0) - (a.score || 0)
+            return (b.displayScore || 0) - (a.displayScore || 0)
         })
 
+        // Calculate positions first
+        var cardWidth = 260
+        var containerWidth = innerScoreboard.offsetWidth || window.innerWidth
+        var totalWidth = sortedGuests.length * cardWidth
+        var startLeft = (containerWidth - totalWidth) / 2
+
         sortedGuests.forEach(function(guest, index) {
-            var card = createGuestCard(guest, index)
+            var leftPos = startLeft + (index * cardWidth)
+            var card = createGuestCard(guest, index, leftPos)
             guestElements[guest.id] = card
             innerScoreboard.appendChild(card)
         })
 
-        positionCards(false)  // Position horizontally
         scoresInitialized = true
     }
 
@@ -297,6 +304,7 @@
     function animateScores() {
         var duration = 2000  // 2 seconds
         var start = null
+        var transitionsEnabled = false
 
         function animationFrame(timestamp) {
             if (!start) start = timestamp
@@ -321,6 +329,13 @@
 
             // Reposition cards during animation for dramatic effect
             if (progress > 0.3) {
+                // Enable transitions just before first reposition
+                if (!transitionsEnabled) {
+                    Object.values(guestElements).forEach(function(card) {
+                        card.style.transition = "left 2s ease-in-out, box-shadow 0.5s ease"
+                    })
+                    transitionsEnabled = true
+                }
                 positionCards(true)
             }
 
@@ -362,8 +377,11 @@
             roomNameEl.textContent = ''
         }
 
-        // Build the scores table
+        // Build the scores table but hide it initially (off-screen)
         buildScoresTable(winners)
+        var scoresTable = document.querySelector("#scores-table-container")
+        scoresTable.style.transition = "none"
+        scoresTable.style.transform = "translateY(100%)"
 
         showDiv("scoreboard")
 
@@ -371,6 +389,12 @@
         setTimeout(function() {
             animateScores()
         }, 500)
+
+        // Slide table up after card animation completes (500ms delay + 2000ms animation + 2500ms buffer)
+        setTimeout(function() {
+            scoresTable.style.transition = "transform 0.8s ease-out"
+            scoresTable.style.transform = "translateY(0)"
+        }, 5000)
     }
 
     // Show award with nominees
